@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>m00d</title>
+  <meta name="description" content="A tiny, private mood + cycle tracker.">
+  <meta name="theme-color" content="#f9f9f7" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0d0d0d" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="m00d">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <h1>m00d</h1>
+  </header>
+
+  <main>
+    <!-- TODAY: status + check-in -->
+    <section id="view-today" class="view">
+      <div id="status-card" class="card status"></div>
+
+      <div class="card">
+        <div class="date-nav">
+          <button id="prev-day" class="icon-btn" aria-label="Previous day">‹</button>
+          <div id="entry-date" class="entry-date"></div>
+          <button id="next-day" class="icon-btn" aria-label="Next day">›</button>
+        </div>
+        <p class="muted small center">Tap what fits. Everything saves instantly; tap again to clear.</p>
+
+        <div id="dims"></div>
+
+        <h3>Period</h3>
+        <div id="flow" class="chips"></div>
+
+        <h3>Body</h3>
+        <div id="symptoms" class="chips"></div>
+
+        <h3>Note</h3>
+        <textarea id="note" rows="2" placeholder="Anything worth remembering? (optional)"></textarea>
+        <p id="saved" class="saved" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- INSIGHTS -->
+    <section id="view-insights" class="view" hidden>
+      <div class="card">
+        <h2>Coming up</h2>
+        <p class="muted small">Next 7 days, based on how the same cycle days have felt before.</p>
+        <div id="forecast" class="forecast"></div>
+      </div>
+
+      <div class="card">
+        <h2>Timeline</h2>
+        <div class="row-controls">
+          <div id="tl-dims" class="chips small-chips"></div>
+          <div id="tl-range" class="seg"></div>
+        </div>
+        <div id="timeline" class="chart"></div>
+        <div id="phase-legend" class="legend"></div>
+        <p class="muted small">Background = cycle phase (faded = predicted). Dashed line = what's typical for that cycle day. Red dots = period.</p>
+      </div>
+
+      <div class="card">
+        <h2>Your cycle pattern</h2>
+        <p class="muted small">Every logged day placed on an "average cycle". Each cell compares that cycle day with her usual level.</p>
+        <div id="pattern" class="chart"></div>
+        <div id="pattern-legend" class="legend"></div>
+      </div>
+
+      <div class="card">
+        <h2>By phase</h2>
+        <div id="phase-summary"></div>
+      </div>
+    </section>
+
+    <!-- CALENDAR -->
+    <section id="view-calendar" class="view" hidden>
+      <div class="card">
+        <div class="date-nav">
+          <button id="prev-month" class="icon-btn" aria-label="Previous month">‹</button>
+          <div id="month-label" class="entry-date"></div>
+          <button id="next-month" class="icon-btn" aria-label="Next month">›</button>
+        </div>
+        <div id="calendar" class="calendar"></div>
+        <div id="cal-legend" class="legend"></div>
+        <p class="muted small">Tap a past day to view or edit it.</p>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view" hidden>
+      <div class="card">
+        <h2>Cycle</h2>
+        <label class="field">Typical cycle length (days)
+          <input id="set-cycle" type="number" min="18" max="60" inputmode="numeric">
+        </label>
+        <label class="field">Typical period length (days)
+          <input id="set-period" type="number" min="1" max="12" inputmode="numeric">
+        </label>
+        <label class="field">Luteal phase length (days)
+          <input id="set-luteal" type="number" min="9" max="17" inputmode="numeric">
+        </label>
+        <p class="muted small">These are only starting guesses. Once two or more periods are logged, the app uses her real averages for cycle and period length. The luteal phase (ovulation → period) is fairly constant, about 14 days for most people.</p>
+      </div>
+
+      <div class="card">
+        <h2>What to track</h2>
+        <p class="muted small">1–5 scales. Rename, add, or remove freely. Removing one hides it but keeps its old data.</p>
+        <div id="dim-editor"></div>
+        <button id="add-dim" class="btn">+ Add a scale</button>
+      </div>
+
+      <div class="card">
+        <h2>Body symptoms</h2>
+        <label class="field">One per line
+          <textarea id="set-symptoms" rows="6"></textarea>
+        </label>
+      </div>
+
+      <div class="card">
+        <h2>Data</h2>
+        <p class="muted small">Everything is stored only in this browser on this device. Export now and then as a backup, or to move it to another phone.</p>
+        <div class="btn-row">
+          <button id="export" class="btn">Export backup</button>
+          <label class="btn">Import backup<input id="import" type="file" accept="application/json,.json" hidden></label>
+        </div>
+        <div class="btn-row">
+          <button id="demo" class="btn ghost">Load demo data</button>
+          <button id="clear" class="btn danger">Delete all data</button>
+        </div>
+      </div>
+
+      <p class="muted small center">Cycle phases and predictions are estimates from logged dates, not medical advice or contraception.</p>
+    </section>
+  </main>
+
+  <nav class="tabs" aria-label="Sections">
+    <button data-view="today" class="on"><span>✎</span>Check in</button>
+    <button data-view="insights"><span>∿</span>Insights</button>
+    <button data-view="calendar"><span>▦</span>Calendar</button>
+    <button data-view="settings"><span>⚙</span>Settings</button>
+  </nav>
+
+  <div id="tooltip" class="tooltip" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
