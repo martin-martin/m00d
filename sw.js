@@ -1,6 +1,6 @@
 // Network-first service worker: always tries for the freshest app files,
 // falls back to the cached copy so the app opens offline.
-const CACHE = 'm00d-v1';
+const CACHE = 'm00d-v2';
 const ASSETS = ['./', 'index.html', 'style.css', 'app.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

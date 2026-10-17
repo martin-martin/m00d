@@ -712,6 +712,7 @@ function renderSettings() {
         higherIsBetter: row.querySelector('select').value === '1' });
       save();
     };
+    row.addEventListener('input', commit);
     row.addEventListener('change', commit);
     row.querySelector('.x-btn').onclick = () => {
       if (!confirm(`Remove "${dim.label}"? Its past data is kept and comes back if you restore a backup.`)) return;
@@ -736,7 +737,9 @@ for (const [id, key, lo, hi] of [['#set-cycle', 'cycleLength', 18, 60], ['#set-p
     ev.target.value = state.settings[key];
   });
 }
-$('#set-symptoms').addEventListener('change', ev => {
+// 'input', not 'change': 'change' only fires on blur, and tapping a tab on
+// mobile Safari doesn't blur the textarea, so edits were silently lost.
+$('#set-symptoms').addEventListener('input', ev => {
   state.settings.symptoms = [...new Set(ev.target.value.split('\n').map(s => s.trim()).filter(Boolean))];
   save();
 });
