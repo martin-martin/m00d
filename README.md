@@ -44,7 +44,7 @@ Period flow: spotting / light / medium / heavy.
   - Luteal: after ovulation.
   - Late luteal / PMS window: the last 7 days before the next period.
 - **Predictions** run forward from the last real period. If the period is overdue, the app says how many days late it is instead of pretending it already started.
-- **Pattern / forecast**: each logged day is placed on an "average cycle". The luteal half is lined up by *days before the next period*, because that phase is the most consistent. The follicular half is stretched or squeezed to fit. Values are then averaged per cycle day, lightly smoothed with the neighbouring days, and compared to her overall average. The forecast and the dashed projection look up these averages for upcoming days.
+- **Pattern / forecast**: each logged day is placed on an "average cycle". The luteal half is lined up by *days before the next period*, because that phase is the most consistent. The follicular half is stretched or squeezed to fit. Values are then averaged per cycle day, lightly smoothed with the neighbouring days, and compared to your overall average. The forecast and the dashed projection look up these averages for upcoming days.
 
 Expect useful patterns after 2–3 cycles of fairly regular check-ins. Missing days are fine.
 
@@ -55,13 +55,13 @@ Expect useful patterns after 2–3 cycles of fairly regular check-ins. Missing d
 Any static file host works.
 
 - **Locally**: `npx http-server .` (or `python3 -m http.server`) and open the printed URL.
-- **GitHub Pages** (easiest way to get it on her phone): repo → Settings → Pages → *Deploy from a branch* → pick the branch and `/ (root)`. Open the URL on her phone → Share → *Add to Home Screen*.
+- **GitHub Pages** (easiest way to get it on your phone): repo → Settings → Pages → *Deploy from a branch* → pick the branch and `/ (root)`. Open the URL on your phone → Share → *Add to Home Screen*.
 
 The app is public, but the data is not. Each phone keeps its own data, and nothing is sent anywhere.
 
-### Looking at it together / backups
+### Other screens / backups
 
-All the data lives on her phone. To look at it on another screen, use **Settings → Export backup** and import that JSON file on the other device. Exporting now and then is also a good backup. If the browser's site data is cleared, the entries are gone.
+All the data lives on your phone. To look at it on another screen, use **Settings → Export backup** and import that JSON file on the other device. Exporting now and then is also a good backup. If the browser's site data is cleared, the entries are gone.
 
 ## Inspiration
 

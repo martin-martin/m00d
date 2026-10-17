@@ -27,7 +27,7 @@ const PHASES = {
   follicular: { label: 'Follicular',       hint: 'Estrogen is rising. For many people energy, mood and focus climb in this stretch.' },
   ovulation:  { label: 'Ovulation (est.)', hint: 'Around ovulation, estimated as ~14 days before the next period. Often a high point.' },
   luteal:     { label: 'Luteal',           hint: 'Progesterone takes over after ovulation. Things can feel a bit slower or calmer.' },
-  pms:        { label: 'Late luteal (PMS)', hint: 'The week before a period, when hormones drop. Dips in mood and energy and more sensitivity are most common here. Be gentle.' },
+  pms:        { label: 'Late luteal (PMS)', hint: 'The week before a period, when hormones drop. Dips in mood and energy and more sensitivity are most common here. Be gentle with yourself.' },
 };
 const PHASE_ORDER = ['menstrual', 'follicular', 'ovulation', 'luteal', 'pms'];
 
@@ -260,12 +260,12 @@ function renderStatus() {
   const c = cycles(), T = today(), ci = cycleInfo(T);
   if (!ci) {
     box.innerHTML = `<div class="big">Welcome 👋</div>
-      <p class="line muted">Log a mood below whenever you like. To switch on cycle tracking, mark the <b>Period</b> row on the first day of her next period (or go back to the last one with ‹ / the Calendar).</p>`;
+      <p class="line muted">Log a mood below whenever you like. To switch on cycle tracking, mark the <b>Period</b> row on the first day of your next period (or go back to the last one with ‹ / the Calendar).</p>`;
     return;
   }
   const nextIn = diff(T, c.next);
   let nextLine;
-  if (c.late > 0) nextLine = `Period is <b>${c.late} day${c.late > 1 ? 's' : ''} later</b> than her ${c.avgLen}-day average.`;
+  if (c.late > 0) nextLine = `Period is <b>${c.late} day${c.late > 1 ? 's' : ''} later</b> than your ${c.avgLen}-day average.`;
   else if (ci.phase === 'menstrual' && !ci.predicted) nextLine = `Period day ${ci.day}. Next one around <b>${fmt(c.next)}</b>.`;
   else nextLine = `Next period in about <b>${nextIn} day${nextIn === 1 ? '' : 's'}</b> (${fmt(c.next, { weekday: 'short', month: 'short', day: 'numeric' })}${c.sd != null ? `, ±${Math.max(1, Math.round(c.sd))}` : ''}).`;
   const basis = c.lengths.length
@@ -397,7 +397,7 @@ function renderForecast() {
   }
   let foot = '';
   if (P.totalDays < 20) foot = `<p class="forecast-note muted small">Mood forecasts appear after about 3 weeks of check-ins; they get good after 2–3 cycles.</p>`;
-  else foot = `<p class="forecast-note muted small"><span class="up">↑/↓ blue</span> = better than her usual, <span class="down">↑/↓ red</span> = harder than usual (arrow = the scale goes up or down).</p>`;
+  else foot = `<p class="forecast-note muted small"><span class="up">↑/↓ blue</span> = better than your usual, <span class="down">↑/↓ red</span> = harder than usual (arrow = the scale goes up or down).</p>`;
   box.innerHTML = html + `<div style="grid-column:1/-1">${notes.map(n => `<p class="forecast-note">${n}</p>`).join('')}${foot}</div>`;
 }
 
@@ -636,7 +636,7 @@ function renderPhaseSummary() {
     html += `<div class="phase-block">${phasePill(p)} <span class="muted small">${b.days} days logged</span>
       ${items.length ? `<ul>${items.slice(0, 3).map(i =>
         `<li class="${i.g >= 0 ? 'up' : 'down'}"><span style="color:var(--ink)">${esc(i.dim.emoji)} ${esc(i.dim.label)} ${i.raw > 0 ? 'higher' : 'lower'}</span> <span class="muted">(${i.avg.toFixed(1)} vs usual ${i.u.toFixed(1)})</span></li>`).join('')}</ul>`
-        : `<p class="muted small" style="margin:4px 0 0">Pretty much her usual.</p>`}
+        : `<p class="muted small" style="margin:4px 0 0">Pretty much your usual.</p>`}
     </div>`;
   }
   box.innerHTML = html || `<div class="empty">Needs at least a few logged days in each phase.</div>`;
