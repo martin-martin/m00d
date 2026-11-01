@@ -136,7 +136,7 @@ h3 { font-size: 14px; margin: 18px 0 8px; color: var(--ink-2); font-weight: 600;
 .small-chips .chip.on { background: var(--surface); color: var(--ink); border-color: var(--ink-2); }
 .small-chips .chip:not(.on) .swatch { opacity: 0.35; }
 
-textarea, input[type="number"], input[type="text"], select {
+textarea, input[type="number"], input[type="text"], input[type="url"], input[type="password"], select {
   width: 100%; border: 1px solid var(--border); border-radius: 10px;
   background: var(--surface-2); padding: 8px 10px;
 }
@@ -202,6 +202,9 @@ textarea, input[type="number"], input[type="text"], select {
   background: var(--surface-2); cursor: pointer; font-size: 14px; display: inline-block;
 }
 .btn.ghost { background: transparent; }
+[hidden] { display: none !important; }
+.warn { display: block; width: 100%; text-align: left; font: inherit; font-size: 14px; color: var(--ink); cursor: pointer;
+  border-color: var(--ph-menstrual); }
 .btn.danger { color: var(--ph-menstrual); }
 .x-btn { width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border); background: transparent; cursor: pointer; color: var(--ink-2); }
 

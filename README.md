@@ -2,7 +2,8 @@
 
 A tiny, private mood + menstrual-cycle tracker. Checking in takes about 10 seconds. It shows how moods line up with cycle phases and gives a rough forecast for the next week.
 
-- **No account, no server, no build step.** Plain HTML/CSS/JS. Data is stored only in the browser on the phone it's used on (`localStorage`).
+- **No account, no build step.** Plain HTML/CSS/JS. Data is stored in the browser on the phone (`localStorage`).
+- **Optional automatic backup to your own server.** A ~150-line Python script (standard library only) keeps a copy, so clearing the browser doesn't lose anything. See [Sync](#sync-backup-to-your-own-server).
 - **Installable.** Open it on a phone and choose "Add to Home Screen". It works offline.
 - **Editable.** The mood scales and the list of body symptoms can be changed in Settings.
 
@@ -57,11 +58,49 @@ Any static file host works.
 - **Locally**: `npx http-server .` (or `python3 -m http.server`) and open the printed URL.
 - **GitHub Pages** (easiest way to get it on your phone): repo → Settings → Pages → *Deploy from a branch* → pick the branch and `/ (root)`. Open the URL on your phone → Share → *Add to Home Screen*.
 
-The app is public, but the data is not. Each phone keeps its own data, and nothing is sent anywhere.
+The app is public, but the data is not. Without sync, each phone keeps its own data and nothing is sent anywhere.
 
-### Other screens / backups
+## Sync: backup to your own server
 
-All the data lives on your phone. To look at it on another screen, use **Settings → Export backup** and import that JSON file on the other device. Exporting now and then is also a good backup. If the browser's site data is cleared, the entries are gone.
+Clearing the browser's site data wipes `localStorage`. Sync keeps a copy on your server so that can't lose anything.
+
+**What it does**
+
+- **Automatic.** About 2 seconds after any change, the app sends the data to the server. It also pulls when it starts and when you switch back to it. If the phone is offline, changes wait and go out later.
+- **Safe after a wipe.** The server keeps a revision number and refuses saves based on an older copy. A wiped or outdated phone therefore always pulls first, merges day by day, and then pushes. It can't overwrite newer data with an empty state.
+- **Several phones** can use the same server. If two of them edit the same day before syncing, the one that syncs last wins for that day.
+- **Copies on the server.** `previous.json` holds the version before the latest save. `snapshots/YYYY-MM-DD.json` holds one copy per day for the last 60 days. To roll back, copy a snapshot over `current.json` and restart the service.
+- **Status** is shown under Settings → Sync & backup. If nothing has gone through for over a day, or the key is wrong, a banner appears at the top of the app.
+
+**Server setup** (Python 3 + nginx with HTTPS; GitHub Pages is HTTPS, so the server has to be too)
+
+```sh
+# 1. Script and secret
+sudo mkdir -p /opt/m00d && sudo cp server/m00d_sync.py /opt/m00d/
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"      # this is your sync key
+echo "M00D_TOKEN=<the key>" | sudo tee /etc/m00d-sync.env && sudo chmod 600 /etc/m00d-sync.env
+# If the app isn't at https://martin-martin.github.io, also add M00D_ORIGIN=https://your.pages.origin
+
+# 2. Service (stores data in /var/lib/m00d)
+sudo cp server/m00d-sync.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now m00d-sync
+
+# 3. nginx: paste server/nginx.conf into your HTTPS server block, then
+sudo nginx -t && sudo systemctl reload nginx
+
+# Check: should print {"error": "wrong key"}
+curl https://your.domain/m00d/data
+```
+
+**On the phone:** open m00d → Settings → Sync & backup. Enter `https://your.domain/m00d/data` and the key, then tap **Connect**. Data already on the phone is merged into the server copy.
+
+**After a wipe or on a second phone:** on a phone that is already connected, tap **Copy setup link**. Keep the link somewhere private, such as a password manager. It looks like `https://…/m00d/#sync=…&key=…`. Opening it once reconnects the app and pulls everything back. The link contains the key, so treat it like a password.
+
+To test locally: `M00D_TOKEN=devdevdevdevdevdev M00D_ORIGIN=http://localhost:8000 python3 server/m00d_sync.py` plus `python3 -m http.server 8000`, then connect to `http://localhost:8787/data`.
+
+### Manual backups
+
+**Settings → Export backup** saves a JSON file, and **Import backup** loads one. This works with or without sync.
 
 ## Inspiration
 
@@ -72,7 +111,6 @@ All the data lives on your phone. To look at it on another screen, use **Setting
 
 ## Ideas for later
 
-- Sync between two phones (e.g. a tiny backend, or a shared file in cloud storage).
 - Several check-ins per day for days with big mood swings.
 - Reminder notification in the evening.
 - Basal temperature / LH tests for better ovulation estimates.
