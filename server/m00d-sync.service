@@ -1,0 +1,23 @@
+# systemd unit for the m00d sync server.
+# Copy to /etc/systemd/system/m00d-sync.service, adjust paths, then:
+#   sudo systemctl daemon-reload && sudo systemctl enable --now m00d-sync
+[Unit]
+Description=m00d sync server
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=m00d
+# Put M00D_TOKEN=... (and optional overrides) in this file, chmod 600.
+EnvironmentFile=/etc/m00d-sync.env
+Environment=M00D_DATA_DIR=/var/lib/m00d
+ExecStart=/usr/bin/python3 /opt/m00d/m00d_sync.py
+Restart=on-failure
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

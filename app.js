@@ -2,10 +2,12 @@
 
 /* ------------------------------------------------------------------ *
  * m00d: a tiny, private mood + cycle tracker.
- * Everything lives in localStorage under one key. No server.
+ * Everything lives in localStorage under one key. Optionally, a copy is
+ * synced to your own server (see server/ and "Sync" further down).
  * ------------------------------------------------------------------ */
 
 const STORE_KEY = 'm00d.v1';
+const SYNC_KEY = 'm00d.sync'; // server URL + key, kept apart so exports never contain the key
 const FLOWS = ['spotting', 'light', 'medium', 'heavy'];
 const MAX_DIMS = 8;
 
@@ -83,6 +85,14 @@ function save() {
   try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
   catch (e) { alert('Could not save. Is storage full or disabled?'); }
   invalidate();
+  if (sync) { sync.dirty = true; sync.edits++; saveSync(); schedulePush(); }
+}
+
+// sync = { url, token, rev, dirty, edits, since, lastOk, error } or null when not connected.
+let sync = null;
+try { sync = JSON.parse(localStorage.getItem(SYNC_KEY)); } catch (e) {}
+function saveSync() {
+  try { sync ? localStorage.setItem(SYNC_KEY, JSON.stringify(sync)) : localStorage.removeItem(SYNC_KEY); } catch (e) {}
 }
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
@@ -762,13 +772,155 @@ $('#import').onchange = async ev => {
   ev.target.value = '';
 };
 $('#demo').onclick = () => {
-  if (Object.keys(state.entries).length && !confirm('Replace current data with ~4 months of made-up demo data? (Export first if you want to keep yours.)')) return;
+  if (sync && !confirm('Sync is on, so demo data would also replace the copy on your server. Continue? (Disconnecting sync first is safer.)')) return;
+  if (!sync && Object.keys(state.entries).length && !confirm('Replace current data with ~4 months of made-up demo data? (Export first if you want to keep yours.)')) return;
   state.entries = demoEntries(); ui.tlDims = null; save(); show('insights');
 };
 $('#clear').onclick = () => {
-  if (!confirm('Delete ALL entries on this device? This cannot be undone.')) return;
+  if (!confirm(sync ? 'Delete ALL entries on this device AND on your sync server? (The server keeps daily copies for a while.)'
+                    : 'Delete ALL entries on this device? This cannot be undone.')) return;
   state.entries = {}; save(); show('today');
 };
+
+/* ------------------------------------------------------------------ *
+ * Sync: keeps a copy on your own server (server/m00d_sync.py).
+ * Fully automatic: every change is sent ~2 s later, and the app pulls
+ * on start and whenever it comes back to the foreground. The server keeps
+ * a revision number, so a stale or freshly wiped phone can't overwrite
+ * newer data: it pulls first, merges day by day, then pushes.
+ * ------------------------------------------------------------------ */
+let syncTimer = null, syncBusy = false, syncAgain = false;
+function schedulePush() { clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 2000); }
+
+async function syncApi(cfg, method, body) {
+  const headers = { Authorization: 'Bearer ' + cfg.token };
+  if (body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(cfg.url, { method, headers, body: body && JSON.stringify(body), cache: 'no-store' });
+  let json = null; try { json = await res.json(); } catch (e) {}
+  if (res.status === 401) throw new Error('the sync key is wrong');
+  if (!res.ok && res.status !== 409) throw new Error((json && json.error) || `server answered ${res.status}`);
+  if (!json || typeof json.rev !== 'number') throw new Error('that URL is not an m00d sync server');
+  return { status: res.status, json };
+}
+
+function writeLocal(next) {
+  if (JSON.stringify(next) === JSON.stringify(state)) return;
+  const d = defaultState();
+  state = { ...d, ...next, settings: { ...d.settings, ...next.settings } };
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) {}
+  invalidate(); ui.tlDims = null; render();
+}
+
+// Bring in a newer server copy. Without local changes the server copy wins outright.
+// With local changes, days are merged and this phone's version of a day wins.
+function takeRemote(remote) {
+  if (!sync.dirty) writeLocal(remote.data);
+  else writeLocal({
+    ...remote.data, ...state,
+    // A phone that never synced (rev 0) keeps the server's settings, not its fresh defaults.
+    settings: sync.rev ? state.settings : remote.data.settings,
+    entries: { ...remote.data.entries, ...state.entries },
+  });
+  sync.rev = remote.rev;
+}
+
+async function syncNow() {
+  if (!sync) return;
+  if (syncBusy) { syncAgain = true; return; }
+  syncBusy = true; clearTimeout(syncTimer); renderSyncStatus();
+  const cfg = sync;
+  try {
+    let remote = (await syncApi(cfg, 'GET')).json;
+    for (let tries = 0; sync === cfg && tries < 5; tries++) {
+      if (!remote.data && Object.keys(state.entries).length) sync.dirty = true; // empty server: re-seed it
+      if (remote.data && remote.rev !== sync.rev) takeRemote(remote);
+      if (!sync.dirty) break;
+      const edits = sync.edits;
+      const r = await syncApi(cfg, 'PUT', { baseRev: remote.rev, data: state });
+      if (r.status === 409) { remote = r.json; continue; } // someone saved first: merge and retry
+      sync.rev = r.json.rev;
+      if (sync.edits === edits) sync.dirty = false;
+      break;
+    }
+    if (sync === cfg) { sync.lastOk = Date.now(); sync.error = null; }
+  } catch (e) {
+    if (sync === cfg) sync.error = navigator.onLine === false ? 'offline'
+      : e instanceof TypeError ? "can't reach the server" : e.message;
+  }
+  syncBusy = false; saveSync(); renderSyncStatus();
+  if (syncAgain) { syncAgain = false; syncNow(); }
+}
+
+async function connectSync(url, token) {
+  url = url.trim(); token = token.trim();
+  if (!/^https:\/\//.test(url) && !/^http:\/\/(localhost|127\.0\.0\.1)[:/]/.test(url)) throw new Error('The URL has to start with https://');
+  if (!token) throw new Error('Enter the sync key.');
+  await syncApi({ url, token }, 'GET'); // fails loudly on a typo before anything is saved
+  sync = { url, token, rev: 0, dirty: Object.keys(state.entries).length > 0, edits: 0, since: Date.now(), lastOk: null, error: null };
+  saveSync();
+  await syncNow();
+}
+
+const ago = t => {
+  const m = Math.round((Date.now() - t) / 6e4);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m} min ago`;
+  if (m < 48 * 60) return `${Math.round(m / 60)} h ago`;
+  return `${Math.round(m / 1440)} days ago`;
+};
+function syncTrouble() {
+  // Worth a banner: a wrong key, or nothing has gone through for over a day.
+  if (!sync || !sync.error) return false;
+  return /key/.test(sync.error) || Date.now() - (sync.lastOk || sync.since) > 864e5;
+}
+function renderSyncStatus() {
+  const warn = $('#sync-warn');
+  warn.hidden = !syncTrouble();
+  if (!warn.hidden) warn.innerHTML = `⚠️ Sync isn't working (${esc(sync.error)}). Your entries are safe on this phone. <u>Settings</u>`;
+  $('#sync-off').hidden = !!sync;
+  $('#sync-on').hidden = !sync;
+  const st = $('#sync-status');
+  if (!sync) { st.textContent = 'Not connected. Your data is only on this phone.'; return; }
+  const host = (() => { try { return new URL(sync.url).host; } catch (e) { return sync.url; } })();
+  if (syncBusy) st.textContent = `Syncing with ${host}…`;
+  else if (sync.error) st.textContent = `⚠️ Last sync failed: ${sync.error}. Changes are kept on this phone and sent once it works again.` +
+    (sync.lastOk ? ` Last successful sync ${ago(sync.lastOk)}.` : '');
+  else st.textContent = `✓ Backed up to ${host} · ${sync.lastOk ? ago(sync.lastOk) : 'not yet'}`;
+}
+
+$('#sync-warn').onclick = () => show('settings');
+$('#sync-connect').onclick = async ev => {
+  ev.target.disabled = true;
+  try { await connectSync($('#sync-url').value, $('#sync-token').value); $('#sync-token').value = ''; }
+  catch (e) { alert('Could not connect: ' + (e instanceof TypeError ? 'no answer from the server (check the URL, HTTPS and M00D_ORIGIN)' : e.message)); }
+  ev.target.disabled = false; renderSyncStatus();
+};
+$('#sync-now').onclick = syncNow;
+$('#sync-link').onclick = async () => {
+  const link = `${location.origin}${location.pathname}#sync=${encodeURIComponent(sync.url)}&key=${encodeURIComponent(sync.token)}`;
+  try { await navigator.clipboard.writeText(link); alert('Setup link copied. Open it once on another phone (or after clearing data) to connect. It contains your key, so keep it private.'); }
+  catch (e) { prompt('Copy this setup link. It contains your key, so keep it private:', link); }
+};
+$('#sync-disconnect').onclick = () => {
+  if (!confirm('Stop syncing on this phone? Data stays here and on the server.')) return;
+  sync = null; saveSync(); renderSyncStatus();
+};
+
+// Setup link: …/#sync=<url>&key=<key>. Strip it from the address bar right away.
+function syncFromLink() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (!h.get('sync') || !h.get('key')) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (sync && sync.url === h.get('sync') && sync.token === h.get('key')) return;
+  connectSync(h.get('sync'), h.get('key'))
+    .then(() => alert('Sync connected ✓'))
+    .catch(e => alert('Could not connect sync: ' + e.message));
+}
+syncFromLink();
+window.addEventListener('hashchange', syncFromLink);
+window.addEventListener('online', syncNow);
+document.addEventListener('visibilitychange', syncNow); // pull on return, push on leave
+setInterval(() => { if (sync && sync.dirty && document.visibilityState === 'visible') syncNow(); }, 60000);
 
 /* ---------- demo data ---------- */
 function demoEntries() {
@@ -833,6 +985,8 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') { invalidate(); if (ui.date > today()) ui.date = today(); render(); }
 });
 render();
+renderSyncStatus();
+syncNow();
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

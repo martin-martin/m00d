@@ -20,6 +20,7 @@
   </header>
 
   <main>
+    <button id="sync-warn" class="card warn" hidden></button>
     <!-- TODAY: status + check-in -->
     <section id="view-today" class="view">
       <div id="status-card" class="card status"></div>
@@ -95,6 +96,26 @@
     <!-- SETTINGS -->
     <section id="view-settings" class="view" hidden>
       <div class="card">
+        <h2>Sync &amp; backup</h2>
+        <p id="sync-status" class="small"></p>
+        <div id="sync-off">
+          <p class="muted small">Keeps a copy on your own server so clearing the browser doesn't lose anything. Once connected it's automatic: every change is sent a moment later. Setup is in the README under "Sync".</p>
+          <label class="field">Server URL
+            <input id="sync-url" type="url" placeholder="https://example.com/m00d/data" autocomplete="off" autocapitalize="off" spellcheck="false">
+          </label>
+          <label class="field">Sync key
+            <input id="sync-token" type="password" autocomplete="off">
+          </label>
+          <div class="btn-row"><button id="sync-connect" class="btn">Connect</button></div>
+        </div>
+        <div id="sync-on" class="btn-row" hidden>
+          <button id="sync-now" class="btn">Sync now</button>
+          <button id="sync-link" class="btn ghost">Copy setup link</button>
+          <button id="sync-disconnect" class="btn ghost">Disconnect</button>
+        </div>
+      </div>
+
+      <div class="card">
         <h2>Cycle</h2>
         <label class="field">Typical cycle length (days)
           <input id="set-cycle" type="number" min="18" max="60" inputmode="numeric">
@@ -124,7 +145,7 @@
 
       <div class="card">
         <h2>Data</h2>
-        <p class="muted small">Everything is stored only in this browser on this device. Export now and then as a backup, or to move it to another phone.</p>
+        <p class="muted small">Export a JSON file now and then as an extra backup, or to move data without sync.</p>
         <div class="btn-row">
           <button id="export" class="btn">Export backup</button>
           <label class="btn">Import backup<input id="import" type="file" accept="application/json,.json" hidden></label>
