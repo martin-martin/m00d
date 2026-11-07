@@ -69,30 +69,50 @@ Clearing the browser's site data wipes `localStorage`. Sync keeps a copy on your
 - **Automatic.** About 2 seconds after any change, the app sends the data to the server. It also pulls when it starts and when you switch back to it. If the phone is offline, changes wait and go out later.
 - **Safe after a wipe.** The server keeps a revision number and refuses saves based on an older copy. A wiped or outdated phone therefore always pulls first, merges day by day, and then pushes. It can't overwrite newer data with an empty state.
 - **Several phones** can use the same server. If two of them edit the same day before syncing, the one that syncs last wins for that day.
-- **Copies on the server.** `previous.json` holds the version before the latest save. `snapshots/YYYY-MM-DD.json` holds one copy per day for the last 60 days. To roll back, copy a snapshot over `current.json` and restart the service.
+- **Copies on the server.** `previous.json` holds the version before the latest save. `snapshots/YYYY-MM-DD.json` holds one copy per day for the last 60 days. All of these live in `server/data/` (or `/var/lib/m00d` with systemd). To roll back, copy a snapshot over `current.json` and restart the server (`docker compose restart`).
 - **Status** is shown under Settings → Sync & backup. If nothing has gone through for over a day, or the key is wrong, a banner appears at the top of the app.
 
-**Server setup** (Python 3 + nginx with HTTPS; GitHub Pages is HTTPS, so the server has to be too)
+**Server setup with Docker + Caddy** (this is how it runs on 100blocks.space; GitHub Pages is HTTPS, so the server has to be too)
+
+The sync server runs as a container on the shared `web` Docker network, and the Caddy container proxies a subdomain to it and handles HTTPS.
 
 ```sh
-# 1. Script and secret
-sudo mkdir -p /opt/m00d && sudo cp server/m00d_sync.py /opt/m00d/
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"      # this is your sync key
-echo "M00D_TOKEN=<the key>" | sudo tee /etc/m00d-sync.env && sudo chmod 600 /etc/m00d-sync.env
-# If the app isn't at https://martin-martin.github.io, also add M00D_ORIGIN=https://your.pages.origin
+# 1. DNS: point an A record for m00d.your.domain at the server.
 
-# 2. Service (stores data in /var/lib/m00d)
-sudo cp server/m00d-sync.service /etc/systemd/system/
-sudo systemctl daemon-reload && sudo systemctl enable --now m00d-sync
+# 2. Secret (server/.env is git-ignored)
+cd server
+mkdir -p data && chmod 700 data
+(umask 077; echo "M00D_TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" > .env)
+# If the app isn't at https://martin-martin.github.io, also add M00D_ORIGIN=https://your.pages.origin to .env
 
-# 3. nginx: paste server/nginx.conf into your HTTPS server block, then
-sudo nginx -t && sudo systemctl reload nginx
+# 3. Start it (restarts automatically; data lands in server/data/)
+docker compose up -d --build
+
+# 4. Caddy: add this block to the Caddyfile, then reload
+#    m00d.your.domain {
+#        reverse_proxy m00d-sync:8787
+#    }
+docker exec caddy caddy reload --config /etc/caddy/Caddyfile
 
 # Check: should print {"error": "wrong key"}
-curl https://your.domain/m00d/data
+curl https://m00d.your.domain/data
 ```
 
-**On the phone:** open m00d → Settings → Sync & backup. Enter `https://your.domain/m00d/data` and the key, then tap **Connect**. Data already on the phone is merged into the server copy.
+Your sync key is the part after `M00D_TOKEN=` in `server/.env` (`cat server/.env`). After editing `m00d_sync.py`, run `docker compose up -d --build` again.
+
+<details><summary>Without Docker: systemd + nginx</summary>
+
+```sh
+sudo mkdir -p /opt/m00d && sudo cp server/m00d_sync.py /opt/m00d/
+echo "M00D_TOKEN=<the key>" | sudo tee /etc/m00d-sync.env && sudo chmod 600 /etc/m00d-sync.env
+sudo cp server/m00d-sync.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now m00d-sync   # data in /var/lib/m00d
+# paste server/nginx.conf into your HTTPS server block; the sync URL is then https://your.domain/m00d/data
+sudo nginx -t && sudo systemctl reload nginx
+```
+</details>
+
+**On the phone:** open m00d → Settings → Sync & backup. Enter `https://m00d.your.domain/data` and the key, then tap **Connect**. Data already on the phone is merged into the server copy.
 
 **After a wipe or on a second phone:** on a phone that is already connected, tap **Copy setup link**. Keep the link somewhere private, such as a password manager. It looks like `https://…/m00d/#sync=…&key=…`. Opening it once reconnects the app and pulls everything back. The link contains the key, so treat it like a password.
 
