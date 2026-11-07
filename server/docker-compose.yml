@@ -1,0 +1,26 @@
+# m00d sync server as a container on the shared `web` network,
+# so the Caddy container can reach it as m00d-sync:8787.
+#
+#   cd server && docker compose up -d --build
+#
+# Put M00D_TOKEN=... (and optionally M00D_ORIGIN=...) in server/.env (chmod 600, git-ignored).
+name: m00d
+
+services:
+  m00d-sync:
+    build: .
+    container_name: m00d-sync
+    restart: unless-stopped
+    env_file: .env
+    user: "1000:1000"          # files in ./data belong to your normal user
+    volumes:
+      - ./data:/data           # current.json, previous.json, snapshots/
+    networks:
+      - web
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  web:
+    external: true
