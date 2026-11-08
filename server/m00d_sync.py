@@ -2,7 +2,7 @@
 """
 m00d sync server: keeps one copy of the app's data on your own server.
 
-Standard library only. Run it behind nginx (which does HTTPS) on 127.0.0.1.
+Standard library only. Run it behind a reverse proxy that does HTTPS (Caddy, nginx).
 
     GET  /data   -> {"rev": 7, "data": {...}}         (data is null until the first upload)
     PUT  /data   <- {"baseRev": 7, "data": {...}}
@@ -21,7 +21,8 @@ Environment:
   M00D_TOKEN      required. A long random secret, e.g. `python3 -c "import secrets; print(secrets.token_urlsafe(32))"`
   M00D_DATA_DIR   where to store data (default: ./m00d-data)
   M00D_ORIGIN     allowed browser origin (default: https://martin-martin.github.io)
-  M00D_PORT       port on 127.0.0.1 (default: 8787)
+  M00D_HOST       address to listen on (default: 127.0.0.1; the Docker image uses 0.0.0.0)
+  M00D_PORT       port to listen on (default: 8787)
   M00D_KEEP_DAYS  how many daily snapshots to keep (default: 60)
 """
 import datetime
@@ -36,6 +37,7 @@ from pathlib import Path
 TOKEN = os.environ.get("M00D_TOKEN", "")
 DATA_DIR = Path(os.environ.get("M00D_DATA_DIR", "m00d-data")).resolve()
 ORIGIN = os.environ.get("M00D_ORIGIN", "https://martin-martin.github.io")
+HOST = os.environ.get("M00D_HOST", "127.0.0.1")
 PORT = int(os.environ.get("M00D_PORT", "8787"))
 KEEP_DAYS = int(os.environ.get("M00D_KEEP_DAYS", "60"))
 MAX_BODY = 5 * 1024 * 1024
@@ -148,5 +150,5 @@ if __name__ == "__main__":
         sys.exit("Set M00D_TOKEN to a long random secret (16+ characters).")
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     os.chmod(DATA_DIR, 0o700)
-    print(f"m00d sync on 127.0.0.1:{PORT}, data in {DATA_DIR}, origin {ORIGIN}")
-    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()
+    print(f"m00d sync on {HOST}:{PORT}, data in {DATA_DIR}, origin {ORIGIN}", flush=True)
+    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
