@@ -695,6 +695,10 @@ $('#next-month').onclick = () => shiftMonth(1);
 
 /* ---------- Settings ---------- */
 function renderSettings() {
+  // Don't rebuild the form under someone's fingers: a re-render (keyboard opening/closing fires
+  // `resize`, sync pulls, returning to the app) would reset the field before its `change` saves it.
+  const a = document.activeElement;
+  if (a && a.matches('#view-settings input, #view-settings textarea')) return;
   const S = state.settings;
   $('#set-cycle').value = S.cycleLength;
   $('#set-period').value = S.periodLength;
